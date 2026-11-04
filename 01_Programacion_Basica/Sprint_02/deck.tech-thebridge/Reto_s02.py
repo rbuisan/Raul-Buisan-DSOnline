@@ -11,6 +11,9 @@ Noa Ferrán | noa.ferran@bridge.example | Data Science
 Óscar Ibáñez | oscar.ibanez@bridge.example | IA Engineering
 Elena Cortés | elena.cortes@bridge.example | Data Science
 
+Hay 9, de los cuales 3 son de IA Engineering, 4 de Data Science y 2 de Ciberseguridad.
+2 sin cohorte, registradas 7, 0 rechazadas. Total 9.
+
 Lista nueva sprint 2:
 
 Vera Montull ; vera.montull@bridge.example ; Data Science
@@ -20,6 +23,14 @@ Alba Requena ;  ALBA.REQUENA@BRIDGE.EXAMPLE ; Data Science
 Nadia Solé ; nadia.sole@bridge.example ; Ciberseguridad
 Vera Montull Ríos ; vera.montull@bridge.example ; Data Science
 Tomás Iriarte ; tomas.iriarte@bridge.example ; IA Engineering
+
+VEra Montull aparece 3 veces, con distintos nombres y correos. registro 1
+Alba está duplicada rechazo
+1 sin cohorte (Nadia)
+registramos a Vera, Rubén y Tomás 3 registros 3 rechazos 1 sin cohorte
+10 total
+3 rechazos
+3 sin cohorte
 
 Diccionario cohortes ( programa → código de cohorte )
 "Data Science" → "DS-MAR26"
@@ -73,7 +84,8 @@ ALTAS_PREVIAS = [
     {"nombre": "Óscar Ibáñez", "email": "oscar.ibanez@bridge.example", "programa": "IA Engineering"}, 
     {"nombre": "Elena Cortés", "email": "elena.cortes@bridge.example", "programa": "Data Science"}]
 
-HOJA_NUEVAS = """Vera Montull ; vera.montull@bridge.example ; Data Science
+HOJA_NUEVAS = """
+Vera Montull ; vera.montull@bridge.example ; Data Science
 Rubén Alcaraz ;  Ruben.Alcaraz@Bridge.example  ; IA Engineering
 VERA MONTULL ;   VERA.MONTULL@bridge.example ; Data Science
 Alba Requena ;  ALBA.REQUENA@BRIDGE.EXAMPLE ; Data Science
@@ -85,21 +97,6 @@ Tomás Iriarte ; tomas.iriarte@bridge.example ; IA Engineering
 COHORTES = {'Data Science': 'DS-MAR26', 'IA Engineering': 'IAE-MAR26'}
 ORIGEN_ALTAS = "reto ds-reto-s01 · entrega del propio alumno (intento 1)"
 
-
-
-
-# print("============")
-# print(ALTAS_PREVIAS)
-# print("============")
-# print(f"HOJA_NUEVAS {type(HOJA_NUEVAS)}")
-# print(HOJA_NUEVAS)
-# print("============")
-# print(type(COHORTES))
-# print(COHORTES)
-# print("============")
-# print(type(ORIGEN_ALTAS))
-# print(ORIGEN_ALTAS)
-# print("============")
 
 def normalizar_email(texto):
     normalizado = "".join(texto.split()).lower()
@@ -113,56 +110,104 @@ def parsear_hoja(texto):
     for linea in texto.split("\n"):
         if linea.strip():  # ignorar líneas en blanco
             nombre, email, programa = linea.split(" ; ")
-            
             nombre = " ".join(nombre.split()).title()
             email = "".join(email.split()).lower()
             programa = " ".join(programa.split()).title()
-            programa.replace("Ia Engineering", "IA Engineering")
+            programa = programa.replace("Ia Engineering", "IA Engineering")
             filas.append({"nombre": nombre, "email": email, "programa": programa})
     return filas
 
-
 class Cohorte:
+    control_de_duplicados = {}
+
     def __init__(self, codigo, programa):
         self.codigo = codigo
         self.programa = programa
-
+        self.miembros = {}
+        self.rechazos = []
+        
     def alta(self, persona):
-        # motivos de rechazo: "duplicado" y "otro_programa"
-        if persona["programa"] != self.programa:
-            self.rechazos.append({"email": persona["email"], "motivo": "otro_programa"})
+        email = persona["email"]
+        if email in self.miembros:
+            #print("Rechazo: duplicado", email)
+            self.rechazos.append({"email": email, "motivo": "duplicado"})
             return False
-        return False
+        
+        if persona["programa"] != self.programa:
+            #print("Rechazo: otro programa", email)
+            self.rechazos.append({"email": email, "motivo": "otro_programa"})
+            return False
+        
+        if email in self.control_de_duplicados:
+            #print("Rechazo: duplicado en otra cohorte", email)
+            self.rechazos.append({"email": email, "motivo": "otro_programa"})
+            return False
+        
+        self.miembros[email] = persona
+        self.control_de_duplicados[email] = self.codigo
+        return True
+    
+    def emails(self):
+        return set(self.miembros.keys())
+    
+    def total(self):
+        return len(self.miembros)
+    
+    def __str__(self):
+        return f"{self.miembros}"
 
 
 def inscribir(registro, altas):
     registradas = []
     fuera = []
-    # cada alta va a la cohorte de SU programa; si no hay ninguna abierta
-    # para ese programa, no es un rechazo: es que no hay donde meterla
+    count = 0
+    for persona in altas:
+        programa = persona["programa"]
+        if programa in COHORTES:
+            codigo = COHORTES[programa]
+
+            if codigo not in registro:
+                registro[codigo] = Cohorte(codigo, programa)
+            
+            cohorte = registro[codigo]
+
+            if cohorte.alta(persona):
+                registradas.append(persona)
+                count += 1
+            #else:
+            #    print("Rechazada", persona["email"], "en cohorte", codigo)
+            
+        else:
+            fuera.append(persona)
+
+    
     return registradas, fuera
 
 
 registro = {}
 todas = list(ALTAS_PREVIAS) + parsear_hoja(HOJA_NUEVAS)
-indice = 1
-
-
-for item in todas:
-    print(f"{indice} - {item['nombre']} - {item['email']} - {item['programa']}")
-    indice += 1
-
 registradas, sin_cohorte = inscribir(registro, todas)
+
 programas_sin_cohorte = set()
+for persona in sin_cohorte:
+    programas_sin_cohorte.add(persona["programa"])
+
+rechazos = []
+for codigo, cohorte in registro.items():
+    for rechazo in cohorte.rechazos:
+        rechazos.append(rechazo)
+print("Rechazos:", rechazos)
+
 
 artefacto = {
     "artefacto": "registro_cohortes",
     "fuente": "",            # <- de donde sale esto
     "origen": ORIGEN_ALTAS,  # <- la procedencia no te la inventas: se arrastra
-    "cohortes": {},          # <- {codigo: {"programa", "miembros", "total"}}
-    "rechazos": [],          # <- los de todas las cohortes, juntos
+    "cohortes": registro,          # <- {codigo: {"programa", "miembros", "total"}}
+    "rechazos": rechazos,          # <- los de todas las cohortes, juntos
     "sin_cohorte": sin_cohorte,
 }
 
 print("Miembros:", sum(c.total() for c in registro.values()),
       "· Sin cohorte:", len(sin_cohorte))
+
