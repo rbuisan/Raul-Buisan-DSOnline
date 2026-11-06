@@ -203,18 +203,19 @@ rechazos = []
 for codigo, cohorte in registro.items():
     for rechazo in cohorte.rechazos:
         rechazos.append(rechazo)
-#print("Rechazos:", rechazos)
-#print(registro)
+cohortes = {codigo: {"programa": cohorte.programa, "miembros": list(cohorte.miembros.values()), "total": cohorte.total()} for codigo, cohorte in registro.items()}
+
 
 artefacto = {
     "artefacto": "registro_cohortes",
     "fuente": "Sprint 2",            # <- de donde sale esto
     "origen": ORIGEN_ALTAS,  # <- la procedencia no te la inventas: se arrastra
-    "cohortes": {codigo: str(c) for codigo, c in registro.items()},          # <- {codigo: {"programa", "miembros", "total"}}
+    "cohortes": cohortes,          # <- {codigo: {"programa", "miembros", "total"}}
     "rechazos": rechazos,          # <- los de todas las cohortes, juntos
     "sin_cohorte": sin_cohorte,
 }
 
-
+print("Rechazos:", rechazos)
+print("Cohortes:", cohortes)
 print("Miembros:", sum(c.total() for c in registro.values()),
       "· Sin cohorte:", len(sin_cohorte))
