@@ -1,0 +1,221 @@
+"""
+Lista limpia sprint 1:
+
+Alba Requena | alba.requena@bridge.example | Data Science
+Sergio Molina | sergio.molina@bridge.example | IA Engineering
+Carla Vidal | carla.vidal@bridge.example | Ciberseguridad
+Iván Tejero | ivan.tejero@bridge.example | Data Science
+Marta Sanchís | marta.sanchis@bridge.example | IA Engineering
+Adrián Gascó | adrian.gasco@bridge.example | Ciberseguridad
+Noa Ferrán | noa.ferran@bridge.example | Data Science
+Óscar Ibáñez | oscar.ibanez@bridge.example | IA Engineering
+Elena Cortés | elena.cortes@bridge.example | Data Science
+
+Hay 9, de los cuales 3 son de IA Engineering, 4 de Data Science y 2 de Ciberseguridad.
+2 sin cohorte, registradas 7, 0 rechazadas. Total 9.
+
+Lista nueva sprint 2:
+
+Vera Montull ; vera.montull@bridge.example ; Data Science
+Rubén Alcaraz ;  Ruben.Alcaraz@Bridge.example  ; IA Engineering
+VERA MONTULL ;   VERA.MONTULL@bridge.example ; Data Science
+Alba Requena ;  ALBA.REQUENA@BRIDGE.EXAMPLE ; Data Science
+Nadia Solé ; nadia.sole@bridge.example ; Ciberseguridad
+Vera Montull Ríos ; vera.montull@bridge.example ; Data Science
+Tomás Iriarte ; tomas.iriarte@bridge.example ; IA Engineering
+
+======== Prediccion =================
+VEra Montull aparece 3 veces, con distintos nombres y correos. registro 1
+Alba está duplicada rechazo
+1 sin cohorte (Nadia)
+registramos a Vera, Rubén y Tomás 3 registros 3 rechazos 1 sin cohorte
+10 total
+3 rechazos
+3 sin cohorte
+===============================
+
+Diccionario cohortes ( programa → código de cohorte )
+"Data Science" → "DS-MAR26"
+"IA Engineering" → "IAE-MAR26"
+
+
+Reglas:
+
+Las reglas del registro
+- La identidad es el correo, normalizado: sin espacios y en minúsculas. 
+VERA.MONTULL@… y elena.vidal@… son la misma persona, aunque el nombre esté escrito distinto.
+- Alguien que ya está en la cohorte no entra otra vez: el método de alta devuelve False y lo anota como rechazo con motivo "duplicado".
+- Quien es de otro programa tampoco entra en esa cohorte: motivo "otro_programa". 
+Con el reparto bien hecho no debería pasar nunca: es el cinturón de la clase, y se comprueba llamándola a mano.
+- Quien viene de un programa sin cohorte abierta no es un rechazo: no hay dónde meterlo. 
+Va a la lista sin_cohorte, y su programa aparece en el conjunto programas_sin_cohorte.
+- Una línea en blanco no es nadie: se salta al parsear, no crea una persona vacía.
+- Cada rechazo se anota en la propia cohorte, como {"email": …, "motivo": …}. Un rechazo sin motivo no le sirve a nadie.
+
+
+"""
+
+# Bridge SA · Operations — el registro de cohortes
+#
+# Ya tienes cargado:
+#   ALTAS_PREVIAS  lista de dicts {"nombre", "email", "programa"} (viene del S1)
+#   HOJA_NUEVAS    el texto de la hoja de esta semana: "nombre ; correo ; programa"
+#   COHORTES       dict {programa: codigo} con las cohortes abiertas
+#   ORIGEN_ALTAS   de donde salen las altas previas (para el artefacto, no lo cambies)
+#
+# Deja preparado esto, con estos nombres exactos:
+#   normalizar_email(texto)    -> str, sin espacios y en minusculas
+#   parsear_hoja(texto)        -> list de dicts {"nombre", "email", "programa"}
+#   class Cohorte(codigo, programa) -> self.codigo, self.programa,
+#                                 self.miembros (dict correo -> persona),
+#                                 self.rechazos (list de {"email", "motivo"}),
+#                                 alta(persona) -> True / False,
+#                                 emails() -> set, total() -> int, y __str__
+#   registro                   -> dict {codigo: Cohorte}, uno por cohorte abierta
+#   inscribir(registro, altas) -> (registradas, sin_cohorte)
+#   sin_cohorte, programas_sin_cohorte, artefacto
+
+ALTAS_PREVIAS = [
+    {"nombre": "Alba Requena", "email": "alba.requena@bridge.example", "programa": "Data Science"}, 
+    {"nombre": "Sergio Molina", "email": "sergio.molina@bridge.example", "programa": "IA Engineering"}, 
+    {"nombre": "Carla Vidal", "email": "carla.vidal@bridge.example", "programa": "Ciberseguridad"}, 
+    {"nombre": "Iván Tejero", "email": "ivan.tejero@bridge.example", "programa": "Data Science"}, 
+    {"nombre": "Marta Sanchís", "email": "marta.sanchis@bridge.example", "programa": "IA Engineering"}, 
+    {"nombre": "Adrián Gascó", "email": "adrian.gasco@bridge.example", "programa": "Ciberseguridad"}, 
+    {"nombre": "Noa Ferrán", "email": "noa.ferran@bridge.example", "programa": "Data Science"}, 
+    {"nombre": "Óscar Ibáñez", "email": "oscar.ibanez@bridge.example", "programa": "IA Engineering"}, 
+    {"nombre": "Elena Cortés", "email": "elena.cortes@bridge.example", "programa": "Data Science"}]
+
+HOJA_NUEVAS = """
+Vera Montull ; vera.montull@bridge.example ; Data Science
+Rubén Alcaraz ;  Ruben.Alcaraz@Bridge.example  ; IA Engineering
+VERA MONTULL ;   VERA.MONTULL@bridge.example ; Data Science
+Alba Requena ;  ALBA.REQUENA@BRIDGE.EXAMPLE ; Data Science
+Nadia Solé ; nadia.sole@bridge.example ; Ciberseguridad
+Vera Montull Ríos ; vera.montull@bridge.example ; Data Science
+Tomás Iriarte ; tomas.iriarte@bridge.example ; IA Engineering
+"""
+
+COHORTES = {'Data Science': 'DS-MAR26', 'IA Engineering': 'IAE-MAR26'}
+ORIGEN_ALTAS = "reto ds-reto-s01 · entrega del propio alumno (intento 1)"
+
+def normalizar_email(texto):
+    normalizado = "".join(texto.split()).lower()
+    return normalizado
+
+
+def parsear_hoja(texto):
+    # una linea = "nombre ; correo ; programa"
+    # una linea en blanco no es nadie: no crea ninguna fila
+    filas = []
+
+    for linea in texto.split("\n"):
+        if linea.strip():  # ignorar líneas en blanco
+            nombre, email, programa = linea.split(" ; ")
+
+            nombre = " ".join(nombre.split()).title()
+            email = normalizar_email(email)
+            
+       
+            programa = " ".join(programa.split()).title()
+            programa = programa.replace("Ia Engineering", "IA Engineering")
+
+            filas.append({"nombre": nombre, "email": email, "programa": programa})
+    #print(filas)
+    return filas
+
+class Cohorte:
+    #control_de_duplicados = {}
+
+    def __init__(self, codigo, programa):
+        self.codigo = codigo
+        self.programa = programa
+        self.miembros = {}
+        self.rechazos = []
+        
+    def alta(self, persona):
+        email = normalizar_email(persona["email"])
+        if email in self.miembros:
+            #print("Rechazo: duplicado", email)
+            self.rechazos.append({"email": email, "motivo": "duplicado"})
+            return False
+        
+        if persona["programa"] != self.programa:
+            #print("Rechazo: otro programa", email)
+            self.rechazos.append({"email": email, "motivo": "otro_programa"})
+            return False
+        
+        # if email in self.control_de_duplicados:
+        #     #print("Rechazo: duplicado en otra cohorte", email)
+        #     self.rechazos.append({"email": email, "motivo": "otro_programa"})
+        #     return False
+        
+        self.miembros[email] = persona
+        #self.control_de_duplicados[email] = self.codigo
+        return True
+    
+    def emails(self):
+        return set(self.miembros.keys())
+    
+    def total(self):
+        return len(self.miembros)
+    
+    def __str__(self):
+        return f'{{"codigo": "{self.codigo}", "programa": "{self.programa}", "miembros": {list(self.miembros.values())}, "total": {self.total()}}}'
+
+
+def inscribir(registro, altas):
+    registradas = []
+    fuera = []
+    count = 0
+    for persona in altas:
+        programa = persona["programa"]
+        if programa in COHORTES:
+            codigo = COHORTES[programa]
+
+            if codigo not in registro:
+                registro[codigo] = Cohorte(codigo, programa)
+            
+            cohorte = registro[codigo]
+
+            if cohorte.alta(persona):
+                registradas.append(persona)
+                count += 1
+            #else:
+            #    print("Rechazada", persona["email"], "en cohorte", codigo)
+            
+        else:
+            fuera.append(persona)
+
+    
+    return registradas, fuera
+
+
+registro = {}
+todas = list(ALTAS_PREVIAS) + parsear_hoja(HOJA_NUEVAS)
+registradas, sin_cohorte = inscribir(registro, todas)
+
+programas_sin_cohorte = set()
+for persona in sin_cohorte:
+    programas_sin_cohorte.add(persona["programa"])
+
+rechazos = []
+for codigo, cohorte in registro.items():
+    for rechazo in cohorte.rechazos:
+        rechazos.append(rechazo)
+cohortes = {codigo: {"programa": cohorte.programa, "miembros": list(cohorte.miembros.values()), "total": cohorte.total()} for codigo, cohorte in registro.items()}
+
+
+artefacto = {
+    "artefacto": "registro_cohortes",
+    "fuente": "Sprint 2",            # <- de donde sale esto
+    "origen": ORIGEN_ALTAS,  # <- la procedencia no te la inventas: se arrastra
+    "cohortes": cohortes,          # <- {codigo: {"programa", "miembros", "total"}}
+    "rechazos": rechazos,          # <- los de todas las cohortes, juntos
+    "sin_cohorte": sin_cohorte,
+}
+
+print("Rechazos:", rechazos)
+print("Cohortes:", cohortes)
+print("Miembros:", sum(c.total() for c in registro.values()),
+      "· Sin cohorte:", len(sin_cohorte))
